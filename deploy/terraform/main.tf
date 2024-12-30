@@ -71,6 +71,7 @@ resource "aws_security_group" "sg_ssh_and_locust" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # locust
   ingress {
     from_port   = 8089
     to_port     = 8089
@@ -79,10 +80,19 @@ resource "aws_security_group" "sg_ssh_and_locust" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-
+  # grafana
   ingress {
-    from_port   = 8080
-    to_port     = 8080
+    from_port   = 3000
+    to_port     = 3000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+
+  # prometheus
+  ingress {
+    from_port   = 9090
+    to_port     = 9090
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -97,7 +107,6 @@ resource "aws_security_group" "sg_ssh_and_locust" {
 
 
 resource "aws_spot_instance_request" "locust_docker_compose" {
-  #ami           = "ami-075449515af5df0d1"
   ami           = data.aws_ami.ubuntu.id
   spot_price    = "0.1"
   instance_type = "c5.xlarge"

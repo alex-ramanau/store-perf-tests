@@ -22,6 +22,7 @@ users:
 packages:
   - htop
   - sysstat
+  - make
 
 # Sets the GOPATH & downloads the demo payload
 runcmd:
@@ -42,3 +43,7 @@ runcmd:
 
   # verify that docker up & running
   - sudo docker run hello-world
+
+  # clone perf-tests
+  - cd /home/locust && git clone https://github.com/alex-ramanau/store-perf-tests.git
+  - cd /home/locust/store-perf-tests && sudo make docker_compose_up
