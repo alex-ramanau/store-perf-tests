@@ -41,20 +41,20 @@ class LocustCollector(object):
             stats = []
             for s in chain(locust_stats.sort_stats(runner.stats.entries), [runner.stats.total]):
                 stats.append({
-                    "method": s.method,
-                    "name": s.name,
-                    "num_requests": s.num_requests,
-                    "num_failures": s.num_failures,
-                    "avg_response_time": s.avg_response_time,
-                    "min_response_time": s.min_response_time or 0,
-                    "max_response_time": s.max_response_time,
-                    "current_rps": s.current_rps,
-                    "median_response_time": s.median_response_time,
-                    "ninety_nineth_response_time": s.get_response_time_percentile(0.99),
+                    'method': s.method,
+                    'name': s.name,
+                    'num_requests': s.num_requests,
+                    'num_failures': s.num_failures,
+                    'avg_response_time': s.avg_response_time,
+                    'min_response_time': s.min_response_time or 0,
+                    'max_response_time': s.max_response_time,
+                    'current_rps': s.current_rps,
+                    'median_response_time': s.median_response_time,
+                    'ninety_nineth_response_time': s.get_response_time_percentile(0.99),
                     # only total stats can use current_response_time, so sad.
-                    #"current_response_time_percentile_95": s.get_current_response_time_percentile(0.95),
-                    "avg_content_length": s.avg_content_length,
-                    "current_fail_per_sec": s.current_fail_per_sec
+                    #'current_response_time_percentile_95': s.get_current_response_time_percentile(0.95),
+                    'avg_content_length': s.avg_content_length,
+                    'current_fail_per_sec': s.current_fail_per_sec
                 })
 
             # perhaps StatsError.parse_error in e.to_dict only works in python slave, take notices!
@@ -116,9 +116,9 @@ class LocustCollector(object):
 
 @events.init.add_listener
 def locust_init(environment, runner, **kwargs):
-    print("locust init event received")
+    print('locust init event received')
     if environment.web_ui and runner:
-        @environment.web_ui.app.route("/metrics")
+        @environment.web_ui.app.route('/metrics')
         def prometheus_exporter():
             registry = REGISTRY
             encoder, content_type = exposition.choose_encoder(request.headers.get('Accept'))
@@ -131,34 +131,102 @@ def locust_init(environment, runner, **kwargs):
 
 
 class StoreWebUserV2(HttpUser):
+    weight = 1
     wait_time = between(1, 2)  # Wait between 1 and 2 seconds between tasks
 
     @task(50)
     def find_snaps_simple(self):
         headers = {
-            "Snap-Device-Series": '16',
+            'Snap-Device-Series': '16',
         }
         query_params = {
-            "q": "postgres"
+            'q': 'postgres'
         }
-        self.client.get("/v2/snaps/find", headers=headers, params=query_params)
+        self.client.get('/v2/snaps/find', headers=headers, params=query_params)
 
     @task(5)
     def find_charms_simple(self):
         headers = {}
         query_params = {
-            "q": "postgres"
+            'q': 'postgres'
         }
-        self.client.get("/v2/charms/find", headers=headers, params=query_params)
+        self.client.get('/v2/charms/find', headers=headers, params=query_params)
 
 
-#    @task(5)
-#    def get_health(self):
-#        expected_resp = {"database":"healthy"}
-#        with self.client.get("/v1/health", catch_response=True) as resp:
-#            if resp.json() != expected_resp:
-#                resp.failure("Database is not healthy, please check DB metrics!")
+class StoreSnapdUser(HttpUser):
+    weight = 1
+    wait_time = between(1, 2)  # Wait between 1 and 2 seconds between tasks
+    SNAPD_FIREFOX_MAX_REVISION = 5437
+
+    @task(75)
+    def snap_conn_check(self):
+        # see https://github.com/canonical/snapd/blob/master/store/store.go#L1573
+        headers = {
+            'Snap-Device-Series': '16',
+        }
+        query_params = {
+            'fields': ['download'],
+            'architecture': ['amd64'],
+        }
+        with self.client.get('/v2/snaps/info/core', headers=headers, params=query_params, catch_response=True) as resp:
+            resp_json = resp.json()
+            channel_map = resp_json['channel-map']
+            download_url = channel_map[0]['download']['url']
+            with self.client.head(download_url, catch_response=True) as resp2:
+                if 'location' not in resp2.headers:
+                    resp.failure('No CDN location in response headers {}'.format(resp2.headers))
 
 
-#class StoreSnapdUser(HttpUser):
-#    pass
+    @task(20)
+    def snap_refresh_firefox(self):
+        instance_key = round(random.random() * 10**8)
+        headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Snap-Device-Architecture': 'amd64',
+            'Snap-Device-Series': '16'
+        }
+        data = {
+            'actions': [{
+                'action': 'download',
+                'epoch': None,
+                'instance-key': 'locust_{}'.format(instance_key),
+                'name': 'firefox',
+                'revision': StoreSnapdUser.SNAPD_FIREFOX_MAX_REVISION
+            }],
+            'context': [],
+            'fields': [
+                'created-at',
+                'download',
+                'license',
+                'name',
+                'prices',
+                'private',
+                'publisher',
+                'revision',
+                'snap-id',
+                'summary',
+                'title',
+                'type',
+                'version',
+                'confinement',
+                'epoch',
+                'type',
+                'base',
+                'common-ids',
+                'snap-yaml',
+                'architectures'
+            ]
+        }
+        self.client.post('/v2/snaps/refresh', headers=headers, json=data)
+
+    @task(5)
+    def find_snaps_simple(self):
+        headers = {
+            'Snap-Device-Series': '16',
+        }
+        query_params = {
+            'q': 'firefox'
+        }
+        self.client.get('/v2/snaps/find', headers=headers, params=query_params)
+
