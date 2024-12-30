@@ -3,7 +3,7 @@ services:
     container_name: locust
     image: locust
     entrypoint: []
-    command: ['/venv3/bin/locust', '-f', 'store_locustfile.py']
+    command: ['/venv3/bin/locust', '--class-picker', '-f', 'store_locustfile.py']
     working_dir: /perf_tests
     build:
       context: .
