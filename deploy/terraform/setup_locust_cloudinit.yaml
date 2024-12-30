@@ -1,0 +1,44 @@
+#cloud-config
+# Add groups to the system
+# Add the empty group locust
+groups:
+  - ubuntu: [root,sys]
+  - locust
+
+# Add users to the system. Users are added after groups are added.
+users:
+  - default
+  - name: locust
+    gecos: locust
+    shell: /bin/bash
+    primary_group: locust
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: users, admin
+    lock_passwd: false
+    ssh_authorized_keys:
+      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC8l3ord9z3TnS5MKCCzQdjg9UCKHqDauNtW8ytQi7O2GtIw9VOWU99BrYFWf1pzsYkPFF6cvY/xbFjwEidg2CkuodBfXmEPHOx6C7gB11XnWvO8nKx7YsCb9zJYd+MaMKJl0D/HUidOk/DWgHW+LGFR48b+Gdz4Q23JF/7DOplg4p8JjzmyetzqhNGD0qDs6LAEnwLu/Wan4RigGVK88CVOqx3KeKynd0yQZ7I+QPRQYFsneMzkAktSEOFOwlNTeIvx7Cn/4WhUWCH9abM66wVarsxU9jf9YxtmYOAK4zMyVD3vllLagPIJY57rOEUf17KtCXMqezxGjCq5HzjU3WkZI4vRm0Ril/sL9yqunBQZzWkuFQLCwQNX4jV69JepKaBJYTrn4BbGyFK3yEzl/mFLfcoizuh6Yd5ilhQKYaQCQkcpitp+/eopuxNNvye4JxgETVEsKi9kke0sXDBVneyUIqr3wo2yg51lZcTSMgAtyS5Ew2G/OJmdxwYN0Vm9nfY6aWaO6n2C4Qw+JykxyY/CvrF44ywBgtvRN46QrLjnIBjZINenBN6CbbE2G5gEaGa5BrNYU/cLwkxgXFXHkMUm6BvPjPEtdd9fZzlnXChNMOwR9gv+gtORBFHBxS4eYh1VpwI+jqxdxb0zTKCFjJAV/u8KyPDeV9Y1tENa5s8wQ==
+
+# Downloads the golang package
+packages:
+  - htop
+  - sysstat
+
+# Sets the GOPATH & downloads the demo payload
+runcmd:
+  - sudo su locust
+  # Add Docker's official GPG key:
+  - sudo apt-get update
+  - sudo apt-get install ca-certificates curl
+  - sudo install -m 0755 -d /etc/apt/keyrings
+  - sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  - sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+  # Add the repository to Apt sources:
+  - echo  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu   $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+  - sudo apt-get update
+
+  # install docker
+  - sudo apt-get --assume-yes install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+  # verify that docker up & running
+  - sudo docker run hello-world

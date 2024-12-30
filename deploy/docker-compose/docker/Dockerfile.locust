@@ -1,0 +1,25 @@
+FROM ubuntu:noble AS base
+
+RUN apt-get update && apt-get install -y software-properties-common locales && \
+    rm -rf /var/lib/apt/lists/* && \
+    localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8
+ENV LANG en_US.utf8
+ENV DEBIAN_FRONTEND noninteractive
+
+# Copy wait-for.sh script
+ADD wait-for-it.sh /wait-for-it.sh
+RUN chmod +x wait-for-it.sh
+RUN apt-get -o Acquire::AllowInsecureRepositories=true \
+    -o Acquire::AllowDowngradeToInsecureRepositories=true update \
+    && apt-get install -y \
+        sudo \
+        wget \
+        libssl-dev \
+        python3-pip \
+        python3-venv \
+        python3-dev \
+        pkg-config
+
+RUN python3 -m venv /venv3
+ADD _build/src/locust /perf_tests
+RUN /venv3/bin/pip install -r /perf_tests/requirements.txt
